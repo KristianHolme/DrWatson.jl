@@ -2,7 +2,6 @@ module DrWatsonDataFramesExt
 
 using DrWatson, DataFrames
 using DrWatson: FileIO, JLD2, InvalidResultsCollection
-using DrWatson.FileIO: File, filename, @format_str
 import DrWatson: collect_results, collect_results!
 using PrecompileTools: @setup_workload, @compile_workload
 
@@ -20,7 +19,7 @@ function collect_results!(filename, folder;
     newfile = false, # keyword only for defining collect_results without !
     rinclude = [r""],
     rexclude = [r"^\b$"],
-    load_function = wload,
+    load_function = nothing,
     kwargs...)
 
     @assert all(eltype(r) <: Regex for r in (rinclude, rexclude)) "Elements of `rinclude` and `rexclude` must be Regex expressions."
@@ -31,7 +30,7 @@ function collect_results!(filename, folder;
         mtimes = Dict{String,Float64}()
     else
         verbose && @info "Loading existing result collection..."
-        data = load_function(filename)
+        data = something(load_function, wload)(filename)
         df = data["df"]
         # Check if we have pre-recorded mtimes (if not this could be because of an old results database).
         if "mtime" ∈ keys(data)
@@ -103,7 +102,7 @@ function collect_results!(filename, folder;
         mtimes[file] = mtime_file
 
         fpath = rpath === nothing ? file : joinpath(rpath, file)
-        df_new = to_data_row(FileIO.query(fpath); load_function=load_function, kwargs...)
+        df_new = load_data_row(fpath, load_function; kwargs...)
         #add filename
         df_new[!, :path] .= file
         if replace_entry
@@ -155,18 +154,18 @@ end
 is_valid_file(file, valid_filetypes) =
     any(endswith(file, v) for v in valid_filetypes)
 
-# Use wload per default when nothing else is available
-function to_data_row(file::File; load_function=wload, kwargs...)
-    fpath = filename(file)
-    @debug "Opening $(filename(file)) with fallback wload."
-    return to_data_row(load_function(fpath), fpath; kwargs...)
+# JLD2 files are opened with jldopen, so only the keys put in the row are read
+function load_data_row(fpath, load_function::Nothing; kwargs...)
+    if endswith(fpath, ".jld2")
+        @debug "Opening $(fpath) with jldopen."
+        return JLD2.jldopen(data -> to_data_row(data, fpath; kwargs...), fpath, "r")
+    end
+    @debug "Opening $(fpath) with fallback wload."
+    return to_data_row(wload(fpath), fpath; kwargs...)
 end
-# Specialize for JLD2 files, can do much faster mmapped access
-function to_data_row(file::File{format"JLD2"}; load_function=(filename) -> JLD2.jldopen(filename, "r"), kwargs...)
-    fpath = filename(file)
-    @debug "Opening $(filename(file)) with jldopen."
-    data = load_function(fpath)
-    return to_data_row(data, fpath; kwargs...)
+function load_data_row(fpath, load_function; kwargs...)
+    @debug "Opening $(fpath) with custom load_function."
+    return to_data_row(load_function(fpath), fpath; kwargs...)
 end
 function to_data_row(data, file;
         white_list = collect(keys(data)),

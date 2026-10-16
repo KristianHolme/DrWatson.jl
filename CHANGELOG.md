@@ -8,6 +8,9 @@
   compiles most of its code (6 s → 0.15 s for 400 files).
 - `collect_results` concatenates all new rows once instead of once per file. The runtime
   is now linear in the number of files (4000 files: 1.4 s → 0.5 s).
+- `collect_results` again opens JLD2 files lazily with `jldopen` by default, so keys that
+  are not put in the dataframe (for example those in `black_list`) are not read from disk.
+  The default `load_function = wload` had disabled this. Files are now closed after reading.
 
 # 2.19.0
 

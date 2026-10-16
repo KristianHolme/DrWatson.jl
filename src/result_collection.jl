@@ -50,7 +50,7 @@ See also [`collect_results`](@ref).
 * `black_list = [:gitcommit, :gitpatch, :script]`: List of keys not to include from result-file.
 * `special_list = []`: List of additional (derived) key-value pairs
   to put in `df` as explained below.
-*  `load_function = wload`: Load function. Defaults to `wload`. You may want to specify a custom load function for example if you store results as a struct and you want the fields of the struct to form the columns of the dataframe. The struct is saved to file as a one-element dictionary so the dataframe will only have a single column. To work around this you could convert it to a dictionary by specifying `load_function = (filename) -> struct2dict(wload(filename)["mykey"])`. This way `collect_results` will receive a `Dict` whose keys are the fields of the struct.
+*  `load_function`: Load function. By default, JLD2 files are opened with `JLD2.jldopen`, so only the keys that go into `df` are read from disk, and all other files are loaded with `wload`. You may want to specify a custom load function for example if you store results as a struct and you want the fields of the struct to form the columns of the dataframe. The struct is saved to file as a one-element dictionary so the dataframe will only have a single column. To work around this you could convert it to a dictionary by specifying `load_function = (filename) -> struct2dict(wload(filename)["mykey"])`. This way `collect_results` will receive a `Dict` whose keys are the fields of the struct.
 
 `special_list` is a `Vector` where each entry
 is a derived quantity to be included in `df`. There are two types of entries.

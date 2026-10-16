@@ -259,6 +259,12 @@ mktempdir(datadir()) do folder
     @test cres.idx[1] == 1 # It's what we've saved above.
     @test size(cres,1) == 1 # only one file
     @test size(cres,2) == 2 # idx and path
+
+    # JLD2 files are read lazily by default and closed afterwards
+    probe = [:loaded_as => data -> nameof(typeof(data))]
+    cres = collect_results(folder, black_list = ("value",), special_list = probe)
+    @test cres.loaded_as[1] == (ending == "jld2" ? :JLDFile : :Dict)
+    @test isempty(JLD2.OPEN_FILES)
 end
 
 ###############################################################################
